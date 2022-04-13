@@ -2,7 +2,7 @@ name: "scalewebs-model-simulations"
 title: "sCaleWebs model simulations"
 description: |
   sCaleWebs model simulations
-output_dir: "_site"
+output_dir: "_docs"
 navbar:
   right:
     - text: "Home"
