@@ -1,0 +1,90 @@
+---
+title: "Beta diversity and species responses"
+description: |
+  A short description of the post.
+author:
+  - name: Nora Jones
+    url: https://example.com/norajones
+date: 04-13-2022
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+### Food web simulations
+
+Need to simulate the food web in a plausible way. Some constraints:
+
+1. All species except basal resources need a link
+2. most species will have only 3 connections (ie they eat basal resources)
+
+finally, we want to relate a species number of links to the community. 
+
+Number of links per consumer is :
+
+$$
+L_i = (S - 1)p_i + 1
+$$
+
+possibly with the constraint that the one link can't be a cannibal! 
+
+The probability of a link, $p_i$ is another way of thinking about the degree of a species
+
+In our dataset the modal species richness is *3* because most species are detritivores that eat all the basal resources   
+
+<aside>
+Do we want to have some kind of.. *3*-inflated distribution for our links? 
+</aside>
+
+One simple way to do this is to allow the node distribution to have an average centered on 3 
+
+The steps:
+* find the average p for a food web where most species eat 3 things
+* let each consumer have a different p (complexify this later)
+* draw links for each predator
+
+```{r}
+n_basal <- 3
+S <- 12
+
+mean_p <- (n_basal - 1)/(S - 1)
+
+consumer_probs <- rbeta(n = S - n_basal, mean_p * 3, (1 - mean_p) * 3)
+
+consumer_links <- rbinom(S - n_basal, S - 1, prob = consumer_probs) + 1
+
+hist(consumer_links)
+```
+
+
+this could be converted to the logit scale: 
+
+```{r}
+consumer_probs_logit <- plogis(qlogis(mean_p) + rnorm(S - n_basal, mean = 0, sd = .2))
+
+degrees <- rbinom(S - n_basal, S - 1, prob = consumer_probs_logit) + 1
+
+tibble(degrees) |> 
+  count(degrees) |> 
+  ggplot(aes(x = degrees, y = n)) + 
+  geom_bar(stat = "identity") + 
+  coord_cartesian(xlim = c(0, S))
+```
+
+
+### simulate incidence functions
+
+
+```{r}
+
+```
+

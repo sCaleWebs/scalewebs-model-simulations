@@ -1,0 +1,19 @@
+[
+  {
+    "path": "posts/2022-04-13-beta-diversity-and-species-responses/",
+    "title": "Beta diversity and species responses",
+    "description": "A short description of the post.",
+    "author": [
+      {
+        "name": "Nora Jones",
+        "url": "https://example.com/norajones"
+      }
+    ],
+    "date": "2022-04-13",
+    "categories": [],
+    "contents": "\n\n\n\nFood web simulations\nNeed to simulate the food web in a plausible way. Some constraints:\nAll species except basal resources need a link\nmost species will have only 3 connections (ie they eat basal resources)\nfinally, we want to relate a species number of links to the community.\nNumber of links per consumer is :\n\\[\nL_i = (S - 1)p_i + 1\n\\]\npossibly with the constraint that the one link can’t be a cannibal!\nThe probability of a link, \\(p_i\\) is another way of thinking about the degree of a species\nIn our dataset the modal species richness is 3 because most species are detritivores that eat all the basal resources\n\nDo we want to have some kind of.. 3-inflated distribution for our links?\nOne simple way to do this is to allow the node distribution to have an average centered on 3\nThe steps: * find the average p for a food web where most species eat 3 things * let each consumer have a different p (complexify this later) * draw links for each predator\n\n\n\nthis could be converted to the logit scale:\n\n\n\nsimulate incidence functions\n\n\n\n\n\n\n",
+    "preview": "posts/2022-04-13-beta-diversity-and-species-responses/beta-diversity-and-species-responses_files/figure-html5/unnamed-chunk-2-1.png",
+    "last_modified": "2022-04-13T15:34:27-04:00",
+    "input_file": "beta-diversity-and-species-responses.knit.md"
+  }
+]
