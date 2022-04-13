@@ -3,7 +3,7 @@ title: "Beta diversity and species responses"
 description: |
   A short description of the post.
 author:
-  - name: Nora Jones
+  - name: Andrew MacDonald
     url: https://example.com/norajones
 date: 04-13-2022
 output:
@@ -83,8 +83,73 @@ tibble(degrees) |>
 
 ### simulate incidence functions
 
+$$
+\begin{align}
+Y_i &\sim \text{Binomial}(p, 1) \\
+\text{logit}(p) &= a(\phi - b) \\
+\phi &= \bar{\phi} + \beta_{e}X_e \\
+\begin{bmatrix} a \cr b\ \end{bmatrix} &\sim \text{MVN}(\begin{bmatrix} \bar{a} \cr \bar{b}\ \end{bmatrix}, \Sigma)
+\end{align}
+$$
 
 ```{r}
+nsites <- 45
+x <- runif(nsites, min = -3, max = 3)
+
+bar_phi <- -1
+beta_phi <- .3
+
+phi <- bar_phi + beta_phi * x
+
+plot(x, plogis(phi))
+```
+
+simulate correlated $a$ and $b$
+
+```{r}
+corr_mat <- matrix(c(1, .5, .5, 1), nrow = 2)
+sds <- c(.4, 1)
+
+sig <- diag(sds) %*% corr_mat %*% diag(sds)
+
+consumer_a_b <- MASS::mvrnorm(S - n_basal, mu = c(1.5, -3), Sigma = sig)
+```
+
+match species and sites to the coefs:
+
+```{r}
+fake_data <- expand_grid(site = 1:nsites, sp = 1:(S - n_basal)) |> 
+  mutate(
+    x = x[site],
+    logit_prob = consumer_a_b[sp, 1] * (phi[site] - consumer_a_b[sp, 2]))
+
+fake_data |> 
+  ggplot(aes(x = x, y = logit_prob, group = sp)) + 
+  geom_line()
+
+
+
+fake_data |> 
+  ggplot(aes(x = x, y = plogis(logit_prob), group = sp)) + 
+  geom_line()
 
 ```
+
+Now, we need to sample species compositions from this curve
+
+```{r}
+fake_data_obs <- fake_data |> 
+  mutate(prb = plogis(logit_prob),
+         presabs = rbinom(nrow(fake_data), size = 1, prob = prb))
+
+fake_data_obs |> 
+  group_by(site, x) |> 
+  summarize(richness = sum(presabs)) |> 
+  ggplot(aes(x = x, y = richness)) + geom_point()
+```
+
+Finally, we can tweak the simulation to include correlations between the response to the environment and the number of nodes
+
+Could then look at the relationship between connectance and the environment, for example
+
 
