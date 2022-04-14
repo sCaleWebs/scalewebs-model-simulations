@@ -9,6 +9,7 @@ date: 04-13-2022
 output:
   distill::distill_article:
     self_contained: false
+    toc: true
 ---
 
 
@@ -18,41 +19,58 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
+theme_set(theme_bw())
+source(here::here("_posts/2022-04-13-beta-diversity-and-species-responses/simulation_functions.R"))
 ```
+
+## Why simulate data?
+
+The goal of this short document is to create simulated data which is resembles our sCaleWebs synthesis data.
+This data will be simulated from a statistical model. 
+This lets us set the values for various effects, and observe their effects on the food web patterns we are trying to understand.
+
+In my view, a simulated data approach has several interesting advantages:
+
+1. **understanding our models** ecological models can quickly become so complex, with many factors and emergent properities that it can be challenging to reason about them. Things like correlated predictors, sample size, and power can be investigated with 
+1. **validate and test any statistical methods we develop** whatever approach we choose, it is helpful to study how it performs on simulated data. In our simulations, we know the _truth_ -- the values of specific parameters. A simple requirement for a model might be that it does not find an effect when none is there (no false positives) or that it usually finds an effect when one is present (limited false negatives)
+1. **Parameter recovery**  For models which return parameter estimates, we can check to see if the model accurately recovers the _values_ of the parameters used to simulate the data. This can be very helpful, for example, in finding problems with identification.
+1. **Understanding the data** Our dataset is complex, and our food webs are somewhat unique. For example, we make local webs by filtering the community metaweb with a bromeliad-level species list. The consequences of this are challenging to intuit; not least because this differs from many other datasets, where replicated food webs are directly observed.  Personally I find simulations helpful in understanding where a dataset comes from!
+
+
+The simulations below have two parts: first, simulating plausible food webs; second, simulating responses to environmental gradients
 
 ### Food web simulations
 
-Need to simulate the food web in a plausible way. Some constraints:
+I want to simulate the food web in a plausible way. Some constraints:
 
 1. All species except basal resources need a link
-2. most species will have only 3 connections (ie they eat basal resources)
+2. most species will have only 3 connections (ie they eat basal resources; they are decomposers)
 
-finally, we want to relate a species number of links to the community. 
+Here is an expression for the number of links.
 
-Number of links per consumer is :
+<aside>
+possibly with the constraint that the one link can't be a cannibal! 
+</aside>
 
 $$
 L_i = (S - 1)p_i + 1
 $$
 
-possibly with the constraint that the one link can't be a cannibal! 
+The probability of a link, $p_i$ is another way of thinking about the degree of a species.
 
-The probability of a link, $p_i$ is another way of thinking about the degree of a species
-
-In our dataset the modal species richness is *3* because most species are detritivores that eat all the basal resources   
+In our dataset the modal species richness is *3* because most species are detritivores that eat all the basal resources. 
+One simple way to represent this is to allow the node distribution to have an average centered on 3 
 
 <aside>
-Do we want to have some kind of.. *3*-inflated distribution for our links? 
+Do we want to have some kind of.. *3*-inflated distribution for our links? treat detritivores as a predictor category? or would taxonomy soak up a lot of this?
 </aside>
-
-One simple way to do this is to allow the node distribution to have an average centered on 3 
 
 The steps:
 * find the average p for a food web where most species eat 3 things
-* let each consumer have a different p (complexify this later)
+* let each consumer have a different p 
 * draw links for each predator
 
-```{r}
+```{r links}
 n_basal <- 3
 S <- 12
 
@@ -62,16 +80,20 @@ consumer_probs <- rbeta(n = S - n_basal, mean_p * 3, (1 - mean_p) * 3)
 
 consumer_links <- rbinom(S - n_basal, S - 1, prob = consumer_probs) + 1
 
-hist(consumer_links)
+tibble(consumer_links) |> 
+  count(consumer_links) |> 
+  ggplot(aes(x = consumer_links, y = n)) + 
+  geom_bar(stat = "identity") + 
+  coord_cartesian(xlim = c(0, S))
 ```
 
-
-this could be converted to the logit scale: 
+The above uses the beta distribution to generate differences among consumers. 
+However it is more flexible to use the logit scale: 
 
 ```{r}
-consumer_probs_logit <- plogis(qlogis(mean_p) + rnorm(S - n_basal, mean = 0, sd = .2))
+simulate_degrees
 
-degrees <- rbinom(S - n_basal, S - 1, prob = consumer_probs_logit) + 1
+degrees <- simulate_degrees(n_basal = 3, S = 12, degree_sd_logit = 0.3)
 
 tibble(degrees) |> 
   count(degrees) |> 
@@ -112,7 +134,7 @@ sds <- c(.4, 1)
 
 sig <- diag(sds) %*% corr_mat %*% diag(sds)
 
-consumer_a_b <- MASS::mvrnorm(S - n_basal, mu = c(1.5, -3), Sigma = sig)
+consumer_a_b <- MASS::mvrnorm(S - n_basal, mu = c(2, -3), Sigma = sig)
 ```
 
 match species and sites to the coefs:
@@ -140,11 +162,16 @@ Now, we need to sample species compositions from this curve
 ```{r}
 fake_data_obs <- fake_data |> 
   mutate(prb = plogis(logit_prob),
-         presabs = rbinom(nrow(fake_data), size = 1, prob = prb))
+         presabs = rbinom(nrow(fake_data), size = 1, prob = prb)) |> 
+  mutate(sp = paste0("sp", sp),
+         site = paste0("site", site)) 
 
-fake_data_obs |> 
+fake_rich <- fake_data_obs |> 
   group_by(site, x) |> 
   summarize(richness = sum(presabs)) |> 
+  ungroup()
+
+fake_rich |> 
   ggplot(aes(x = x, y = richness)) + geom_point()
 ```
 
@@ -152,4 +179,30 @@ Finally, we can tweak the simulation to include correlations between the respons
 
 Could then look at the relationship between connectance and the environment, for example
 
+
+```{r}
+sxs <- fake_data_obs |> 
+  select(site, sp, presabs) |> 
+  pivot_wider(names_from = sp, values_from = presabs,values_fill = 0) |> 
+  column_to_rownames("site")
+```
+
+```{r}
+site_lcbd <- sxs |> 
+  adespatial::beta.div() |> 
+  pluck("LCBD") |> 
+  enframe(name = "site", value = "lcbd")
+
+fake_rich |> 
+  left_join(site_lcbd) |> 
+  ggplot(aes(x = richness, y = lcbd)) + geom_point()
+```
+
+```{r}
+fake_rich |> 
+  left_join(site_lcbd) |> 
+  ggplot(aes(x = x, y = lcbd)) +
+  geom_point() + 
+  stat_smooth(method = "gam")
+```
 
