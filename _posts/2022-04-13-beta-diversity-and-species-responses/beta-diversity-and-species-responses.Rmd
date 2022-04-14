@@ -1,7 +1,7 @@
 ---
 title: "Beta diversity and species responses"
 description: |
-  A short description of the post.
+  simulating a fake food web.
 author:
   - name: Andrew MacDonald
     url: https://example.com/norajones
@@ -95,15 +95,50 @@ simulate_degrees
 
 degrees <- simulate_degrees(n_basal = 3, S = 12, degree_sd_logit = 0.3)
 
-tibble(degrees) |> 
-  count(degrees) |> 
-  ggplot(aes(x = degrees, y = n)) + 
-  geom_bar(stat = "identity") + 
-  coord_cartesian(xlim = c(0, S))
+plot_degree_dist(degrees)
 ```
 
+#### plot the network
+
+here we bind columns (columns are consumers)
+
+```{r}
+simulate_network
+
+one_network <- simulate_network(S = S, n_basal = n_basal, degrees = degrees)
+
+plot_network_mat(one_network)
+```
+
+```{r include=FALSE, eval=FALSE}
+|> 
+  as.matrix()
+
+colnames(adj_mat) <- c(paste0("sp", 1:(S - n_basal)),paste0("Res", 1:n_basal))
+rownames(adj_mat) <- c(paste0("sp", 1:(S - n_basal)),paste0("Res", 1:n_basal))
+
+
+adj_mat
+
+
+sampled_graph <- adj_mat %>% 
+  igraph::graph_from_incidence_matrix(directed = FALSE) %>% 
+  tidygraph::as_tbl_graph(directed = FALSE)
+
+
+      
+ggraph::ggraph(sampled_graph) +
+  ggraph::geom_node_point(aes(shape = type), size = 3, alpha = 0.8) +
+  ggraph::geom_edge_fan(alpha = 0.46) + 
+  theme_void() + 
+  scale_shape_discrete(name = "Node type", labels = c("Host", "Associate"))
+```
+
+This is a crude simulation of a fake metaweb!
 
 ### simulate incidence functions
+
+The next step is to simulate how species respond to environmental gradients
 
 $$
 \begin{align}
@@ -113,6 +148,8 @@ Y_i &\sim \text{Binomial}(p, 1) \\
 \begin{bmatrix} a \cr b\ \end{bmatrix} &\sim \text{MVN}(\begin{bmatrix} \bar{a} \cr \bar{b}\ \end{bmatrix}, \Sigma)
 \end{align}
 $$
+
+First we simulate how the "suitability", or number of species, increases with habitat size:
 
 ```{r}
 nsites <- 45
@@ -126,7 +163,7 @@ phi <- bar_phi + beta_phi * x
 plot(x, plogis(phi))
 ```
 
-simulate correlated $a$ and $b$
+then we simulate species responses to this gradient. simulate correlated $a$ and $b$
 
 ```{r}
 corr_mat <- matrix(c(1, .5, .5, 1), nrow = 2)
